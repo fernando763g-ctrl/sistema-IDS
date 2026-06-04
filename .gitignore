@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+
+config/.env
+
+logs/*.log
+
+reports/reportes_generados.txt
+
