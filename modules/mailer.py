@@ -1,12 +1,9 @@
 from pathlib import Path
 from dotenv import load_dotenv
 from email.mime.text import MIMEText
+from datetime import datetime
 import smtplib
 import os
-
-# ==========================================
-# CONFIGURACION
-# ==========================================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -23,21 +20,42 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
 
 
-# ==========================================
-# ALERTA NORMAL
-# ==========================================
+def enviar_alerta(ip, mac, dominio="No disponible"):
 
-def enviar_alerta(ip):
+    asunto = "ALERTA IDS - DISPOSITIVO NO AUTORIZADO"
 
-    asunto = "ALERTA IDS - IP NO AUTORIZADA"
+    fecha = datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
 
     mensaje = f"""
-Se detecto una IP no autorizada.
+ALERTA IDS - DISPOSITIVO NO AUTORIZADO
 
-IP detectada:
-{ip}
+Fecha:
+{fecha}
 
-Favor de revisar inmediatamente.
+Dispositivo detectado:
+
+IP  : {ip}
+MAC : {mac}
+
+Dominio detectado:
+{dominio}
+
+Estado:
+NO AUTORIZADO
+
+Descripcion:
+Se detectó un dispositivo que ha comenzado a generar tráfico en la red institucional y no se encuentra registrado en la lista blanca.
+
+Acciones recomendadas:
+
+1. Verificar la identidad del usuario.
+2. Confirmar si el dispositivo pertenece a la organización.
+3. Registrar el dispositivo en la lista blanca únicamente si está autorizado.
+
+Sistema:
+IDS Institucional
 """
 
     try:
@@ -54,7 +72,8 @@ Favor de revisar inmediatamente.
 
         servidor = smtplib.SMTP(
             SMTP_SERVER,
-            SMTP_PORT
+            SMTP_PORT,
+            timeout=10
         )
 
         servidor.starttls()
@@ -75,16 +94,19 @@ Favor de revisar inmediatamente.
         print(f"[ERROR SMTP] {e}")
 
 
-# ==========================================
-# ALERTA DE EMERGENCIA
-# ==========================================
-
 def enviar_emergencia(ip):
 
     asunto = "EMERGENCIA IDS - IP MALICIOSA DETECTADA"
 
+    fecha = datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+
     mensaje = f"""
-Se detecto una conexion hacia una IP clasificada como peligrosa.
+EMERGENCIA IDS
+
+Fecha:
+{fecha}
 
 IP Detectada:
 {ip}
@@ -92,8 +114,17 @@ IP Detectada:
 Riesgo:
 Virus / Botnet
 
-Accion recomendada:
-Revisar inmediatamente el equipo y la comunicacion detectada.
+Descripcion:
+Se detectó una conexión hacia una IP incluida en la lista negra del sistema.
+
+Acciones recomendadas:
+
+1. Aislar el dispositivo afectado.
+2. Revisar el tráfico de red.
+3. Analizar posibles indicadores de compromiso.
+
+Sistema:
+IDS Institucional
 """
 
     try:
@@ -110,7 +141,8 @@ Revisar inmediatamente el equipo y la comunicacion detectada.
 
         servidor = smtplib.SMTP(
             SMTP_SERVER,
-            SMTP_PORT
+            SMTP_PORT,
+            timeout=10
         )
 
         servidor.starttls()
@@ -131,10 +163,6 @@ Revisar inmediatamente el equipo y la comunicacion detectada.
         print(f"[ERROR SMTP] {e}")
 
 
-# ==========================================
-# REPORTE FORENSE
-# ==========================================
-
 def enviar_reporte_forense(
     ip,
     reporte,
@@ -145,7 +173,7 @@ def enviar_reporte_forense(
     asunto = "REPORTE FORENSE IDS"
 
     mensaje = f"""
-Se detecto una IP peligrosa.
+REPORTE FORENSE IDS
 
 IP Detectada:
 {ip}
@@ -158,7 +186,11 @@ Telefono de abuso:
 
 Resumen Whois:
 
-{reporte}
+{reporte[:3000]}
+
+Accion recomendada:
+
+Utilice el correo de abuso proporcionado para reportar la actividad sospechosa al proveedor correspondiente.
 """
 
     try:
@@ -175,7 +207,8 @@ Resumen Whois:
 
         servidor = smtplib.SMTP(
             SMTP_SERVER,
-            SMTP_PORT
+            SMTP_PORT,
+            timeout=10
         )
 
         servidor.starttls()

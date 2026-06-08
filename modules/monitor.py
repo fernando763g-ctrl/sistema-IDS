@@ -17,24 +17,17 @@ from modules.whois_lookup import (
     generar_reporte
 )
 
-# =====================================
-# EVITAR EVENTOS REPETIDOS
-# =====================================
-
 ips_detectadas = set()
 dominios_detectados = set()
 ips_maliciosas_detectadas = set()
+ips_forense = set()
 
+ultimo_dominio = "No disponible"
 
-# =====================================
-# ANALIZAR PAQUETE
-# =====================================
 
 def analizar_paquete(pkt):
 
-    # =====================================
-    # MONITOR DNS
-    # =====================================
+    global ultimo_dominio
 
     if pkt.haslayer(DNSQR):
 
@@ -45,6 +38,8 @@ def analizar_paquete(pkt):
             .rstrip(".")
         )
 
+        ultimo_dominio = dominio
+
         if dominio not in dominios_detectados:
 
             dominios_detectados.add(dominio)
@@ -53,72 +48,51 @@ def analizar_paquete(pkt):
 
             guardar_dns(dominio)
 
-    # =====================================
-    # VALIDAR CAPA IP
-    # =====================================
-
     if IP not in pkt:
         return
 
     ip_origen = pkt[IP].src
-
-    # =====================================
-    # OBTENER MAC ORIGEN
-    # =====================================
+    ip_destino = pkt[IP].dst
 
     if Ether in pkt:
-        mac_origen = pkt[Ether].src
+        mac_origen = pkt[Ether].src.lower()
     else:
-        mac_origen = "DESCONOCIDA"
+        mac_origen = "desconocida"
 
-    # =====================================
-    # THREAT INTELLIGENCE
-    # =====================================
+    if (
+        verificar_ip(ip_destino)
+        and
+        ip_destino not in ips_maliciosas_detectadas
+    ):
 
-    if ip_origen not in ips_maliciosas_detectadas:
+        ips_maliciosas_detectadas.add(
+            ip_destino
+        )
 
-        if verificar_ip(ip_origen):
+        ips_forense.add(
+            ip_destino
+        )
 
-            ips_maliciosas_detectadas.add(ip_origen)
+        print("\n========================")
+        print("    EMERGENCIA IDS")
+        print("========================")
+        print(f"IP PELIGROSA: {ip_destino}")
+        print("RIESGO: Virus/Botnet")
+        print("========================\n")
 
-            print("\n========================")
-            print("    EMERGENCIA IDS")
-            print("========================")
-            print(f"IP MALICIOSA: {ip_origen}")
-            print("========================\n")
+        enviar_emergencia(
+            ip_destino
+        )
 
-            enviar_emergencia(ip_origen)
-
-            generar_reporte(ip_origen)
-
-            reporte = obtener_info_ip(ip_origen)
-
-            abuse_email, abuse_phone = (
-                obtener_abuse_contact(ip_origen)
-            )
-
-            enviar_reporte_forense(
-                ip_origen,
-                reporte[:3000],
-                abuse_email,
-                abuse_phone
-            )
-
-    # =====================================
-    # SOLO RED LOCAL
-    # =====================================
-
-    if not ip_origen.startswith("192.168.1."):
+    if not ip_origen.startswith(
+        "192.168.100."
+    ):
         return
 
     if ip_origen in ips_detectadas:
         return
 
     ips_detectadas.add(ip_origen)
-
-    # =====================================
-    # LISTA BLANCA IP + MAC
-    # =====================================
 
     if validar(ip_origen, mac_origen):
 
@@ -134,26 +108,76 @@ def analizar_paquete(pkt):
         print("========================")
         print(f"IP : {ip_origen}")
         print(f"MAC: {mac_origen}")
+        print(f"DNS: {ultimo_dominio}")
         print("========================\n")
 
         guardar_alerta(
             f"{ip_origen} | {mac_origen}"
         )
 
-        enviar_alerta(ip_origen)
+        enviar_alerta(
+            ip_origen,
+            mac_origen,
+            ultimo_dominio
+        )
 
-
-# =====================================
-# CAPTURA DE PAQUETES
-# =====================================
 
 def capturar_paquetes():
 
     print("\nMonitoreando red local...")
     print("Presione CTRL+C para detener\n")
 
-    sniff(
-        iface="enp0s3",
-        prn=analizar_paquete,
-        store=False
-    )
+    try:
+
+        sniff(
+            iface="enp0s3",
+            prn=analizar_paquete,
+            store=False
+        )
+
+    except KeyboardInterrupt:
+
+        print("\n========================")
+        print(" GENERANDO REPORTE FORENSE")
+        print("========================\n")
+
+        if len(ips_forense) == 0:
+
+            print(
+                "No se detectaron IPs peligrosas."
+            )
+
+            return
+
+        for ip in ips_forense:
+
+            try:
+
+                generar_reporte(ip)
+
+                reporte = obtener_info_ip(ip)
+
+                abuse_email, abuse_phone = (
+                    obtener_abuse_contact(ip)
+                )
+
+                enviar_reporte_forense(
+                    ip,
+                    reporte,
+                    abuse_email,
+                    abuse_phone
+                )
+
+                print(
+                    f"[OK] Reporte forense enviado para {ip}"
+                )
+
+            except Exception as e:
+
+                print(
+                    f"[ERROR] {ip}: {e}"
+                )
+
+        print(
+            "\nMonitoreo finalizado."
+        )
