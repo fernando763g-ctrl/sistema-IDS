@@ -135,7 +135,7 @@ def capturar_paquetes():
             store=False
         )
 
-    except KeyboardInterrupt:
+    finally:
 
         print("\n========================")
         print(" GENERANDO REPORTE FORENSE")
@@ -152,6 +152,10 @@ def capturar_paquetes():
         for ip in ips_forense:
 
             try:
+
+                print(
+                    f"[FORENSE] Procesando {ip}"
+                )
 
                 generar_reporte(ip)
 
@@ -175,7 +179,7 @@ def capturar_paquetes():
             except Exception as e:
 
                 print(
-                    f"[ERROR] {ip}: {e}"
+                    f"[ERROR FORENSE] {ip}: {e}"
                 )
 
         print(
